@@ -1,6 +1,29 @@
-# Three services: web (nginx) → api (Node.js) → db (PostgreSQL). See README.md.
-# Finish the TODOs, then run: docker compose up -d
 services:
-  # TODO: db  - postgres:16-alpine, POSTGRES_PASSWORD from .env, a named volume, a pg_isready health check
-  # TODO: api - build ./api, DB_HOST=db, start after db is healthy, no ports (private)
-  # TODO: web - nginx:1.27-alpine on port 8080, mount web/nginx.conf, start after api
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 10
+  api:
+    build: ./api
+    environment:
+      DB_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+  web:
+    image: nginx:1.27-alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./web/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./web/index.html:/usr/share/nginx/html/index.html:ro
+    depends_on:
+      - api
+volumes:
+  db-data:
